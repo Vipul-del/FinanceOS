@@ -1,267 +1,454 @@
 import { useContext, useState } from "react";
+
 import { FinanceContext } from "../context/FinanceContext";
 
-
-function Expenses(){
-
-
-  const { financeData, setFinanceData } = useContext(FinanceContext);
+import Header from "../components/common/Header";
 
 
 
-  const [category,setCategory] = useState("Home");
-
-  const [amount,setAmount] = useState("");
+function Expenses() {
 
 
+  const {
+    financeData,
+    addExpense,
+    deleteExpense
+  } = useContext(FinanceContext);
 
-  function addExpense(){
 
 
-    if(!amount){
-      alert("Please enter amount");
+
+  const [category, setCategory] = useState("");
+
+  const [amount, setAmount] = useState("");
+
+
+
+
+
+  const handleAddExpense = (e) => {
+
+
+    e.preventDefault();
+
+
+
+    if (!category || !amount) {
+
       return;
+
     }
 
 
 
-    const newExpense = {
-
-      id: Date.now(),
+    addExpense({
 
       category,
 
-      amount:Number(amount)
-
-    };
-
-
-
-    setFinanceData({
-
-      ...financeData,
-
-      expenses:[
-
-        ...financeData.expenses,
-
-        newExpense
-
-      ]
+      amount:Number(amount),
 
     });
 
 
+
+    setCategory("");
 
     setAmount("");
 
-  }
+  };
 
 
 
 
-  function deleteExpense(id){
 
 
-    const updatedExpenses =
-      financeData.expenses.filter(
-        expense => expense.id !== id
+
+  const getCategorySpent = (categoryName)=>{
+
+
+    return financeData.expenses
+
+      .filter(
+
+        item => item.category === categoryName
+
+      )
+
+      .reduce(
+
+        (sum,item)=>
+
+          sum + Number(item.amount || 0),
+
+        0
+
       );
 
 
-
-    setFinanceData({
-
-      ...financeData,
-
-      expenses:updatedExpenses
-
-    });
+  };
 
 
-  }
+
+
 
 
 
 
   return (
 
-    <div>
+    <div className="space-y-8">
 
 
-      <h1 className="text-3xl font-bold mb-6">
-        Expense Management
-      </h1>
+      <Header
 
+        title="Expenses"
 
+        subtitle="Track expenses and manage your monthly budget."
 
-
-      <div className="bg-white p-6 rounded-xl shadow max-w-xl">
-
-
-        <label className="block mb-2">
-          Expense Category
-        </label>
-
-
-        <select
-
-          value={category}
-
-          onChange={(e)=>setCategory(e.target.value)}
-
-          className="border p-3 rounded w-full mb-5"
-
-        >
-
-          <option>Home</option>
-          <option>Food</option>
-          <option>Travel</option>
-          <option>Shopping</option>
-          <option>Other</option>
-
-        </select>
-
-
-
-
-        <label className="block mb-2">
-          Amount
-        </label>
-
-
-        <input
-
-          type="number"
-
-          value={amount}
-
-          onChange={(e)=>setAmount(e.target.value)}
-
-          className="border p-3 rounded w-full mb-5"
-
-        />
-
-
-
-        <button
-
-          onClick={addExpense}
-
-          className="bg-gray-900 text-white px-5 py-3 rounded"
-
-        >
-
-          Add Expense
-
-        </button>
-
-
-      </div>
+      />
 
 
 
 
 
-      <div className="bg-white mt-8 p-6 rounded-xl shadow">
+
+      <div className="bg-white p-6 rounded-xl shadow">
 
 
-        <h2 className="text-xl font-bold mb-4">
-          Expense History
+        <h2 className="text-xl font-semibold mb-5">
+
+          Budget Overview
+
         </h2>
 
 
 
 
-        <table className="w-full">
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
 
-          <thead>
-
-            <tr className="border-b">
-
-              <th className="text-left p-3">
-                Category
-              </th>
+          {(financeData.budgets || []).map((budget)=>(
 
 
-              <th className="text-left p-3">
-                Amount
-              </th>
+            <div
+
+              key={budget.id}
+
+              className="border rounded-xl p-5"
+
+            >
 
 
-              <th className="text-left p-3">
-                Action
-              </th>
+              <h3 className="font-semibold text-lg">
 
+                {budget.category}
 
-            </tr>
-
-          </thead>
+              </h3>
 
 
 
+              <p className="mt-2">
 
-          <tbody>
+                Budget:
 
+                <b>
+                  ₹ {budget.limit.toLocaleString()}
+                </b>
 
-          {
-            financeData.expenses.map((expense)=>(
-
-
-              <tr 
-                key={expense.id}
-                className="border-b"
-              >
-
-                <td className="p-3">
-                  {expense.category}
-                </td>
+              </p>
 
 
-                <td className="p-3">
-                  ₹ {expense.amount.toLocaleString()}
-                </td>
 
 
-                <td className="p-3">
 
-                  <button
+              <p>
 
-                    onClick={()=>
-                      deleteExpense(expense.id)
-                    }
+                Spent:
 
-                    className="text-red-600"
+                <b>
+                  ₹ {getCategorySpent(budget.category).toLocaleString()}
+                </b>
 
-                  >
-
-                    Delete
-
-                  </button>
-
-                </td>
+              </p>
 
 
-              </tr>
 
 
-            ))
-          }
+
+              <div className="mt-3">
 
 
-          </tbody>
+                <div className="w-full bg-gray-200 h-3 rounded">
 
 
-        </table>
+                  <div
+
+                    className="bg-blue-600 h-3 rounded"
+
+                    style={{
+
+                      width:`${
+                        Math.min(
+                          (
+                            getCategorySpent(budget.category) /
+                            budget.limit
+                          ) * 100,
+                          100
+                        )
+                      }%`
+
+                    }}
+
+                  />
+
+                </div>
+
+
+
+              </div>
+
+
+
+
+
+
+              {
+                getCategorySpent(budget.category) >
+                budget.limit
+
+                &&
+
+                <p className="text-red-600 mt-2 font-semibold">
+
+                  ⚠ Budget exceeded
+
+                </p>
+
+              }
+
+
+
+            </div>
+
+
+          ))}
+
+
+        </div>
 
 
       </div>
 
 
+
+
+
+
+
+
+      <div className="bg-white p-6 rounded-xl shadow">
+
+
+        <h2 className="text-xl font-semibold mb-4">
+
+          Add Expense
+
+        </h2>
+
+
+
+
+        <form
+
+          onSubmit={handleAddExpense}
+
+          className="space-y-4"
+
+        >
+
+
+
+          <select
+
+            value={category}
+
+            onChange={(e)=>
+              setCategory(e.target.value)
+            }
+
+            className="w-full border p-3 rounded"
+
+          >
+
+
+            <option value="">
+
+              Select Category
+
+            </option>
+
+
+            <option value="Home">
+              Home
+            </option>
+
+
+            <option value="Food">
+              Food
+            </option>
+
+
+            <option value="Travel">
+              Travel
+            </option>
+
+
+            <option value="Shopping">
+              Shopping
+            </option>
+
+
+            <option value="Health">
+              Health
+            </option>
+
+
+            <option value="Other">
+              Other
+            </option>
+
+
+          </select>
+
+
+
+
+
+          <input
+
+            type="number"
+
+            placeholder="Amount"
+
+            value={amount}
+
+            onChange={(e)=>
+              setAmount(e.target.value)
+            }
+
+            className="w-full border p-3 rounded"
+
+          />
+
+
+
+
+
+          <button
+
+            type="submit"
+
+            className="bg-blue-600 text-white px-5 py-3 rounded"
+
+          >
+
+            Add Expense
+
+          </button>
+
+
+
+        </form>
+
+
+      </div>
+
+
+
+
+
+
+
+
+      <div className="bg-white p-6 rounded-xl shadow">
+
+
+        <h2 className="text-xl font-semibold mb-4">
+
+          Expense History
+
+        </h2>
+
+
+
+
+
+        {financeData.expenses.map((expense)=>(
+
+
+          <div
+
+            key={expense.id}
+
+            className="flex justify-between items-center border-b py-3"
+
+          >
+
+
+            <div>
+
+
+              <p className="font-medium">
+
+                {expense.category}
+
+              </p>
+
+
+              <p>
+
+                ₹ {Number(expense.amount).toLocaleString()}
+
+              </p>
+
+
+            </div>
+
+
+
+
+
+            <button
+
+              onClick={()=>
+                deleteExpense(expense.id)
+              }
+
+              className="text-red-600"
+
+            >
+
+              Delete
+
+            </button>
+
+
+
+          </div>
+
+
+        ))}
+
+
+      </div>
+
+
+
+
     </div>
 
-  )
+  );
 
 }
 

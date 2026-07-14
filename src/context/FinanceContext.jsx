@@ -1,71 +1,398 @@
 import { createContext, useEffect, useState } from "react";
 
+import { supabase } from "../lib/supabase";
+
+import { useAuth } from "./AuthContext";
+
+
 export const FinanceContext = createContext();
 
-const defaultFinanceData = {
+
+
+const emptyFinanceData = {
+
   income: {
-    salary: 100000,
+    salary: 0,
     otherIncome: 0,
   },
 
-  expenses: [
-    {
-      id: 1,
-      category: "Home",
-      amount: 20000,
-    },
-    {
-      id: 2,
-      category: "Food",
-      amount: 10000,
-    },
-  ],
 
-  investments: [
-    {
-      id: 1,
-      type: "Mutual Funds",
-      amount: 800000,
-    },
-    {
-      id: 2,
-      type: "FD / RD",
-      amount: 200000,
-    },
-  ],
+  expenses: [],
+
+
+  investments: [],
+
 
   loans: {
-    homeLoanOutstanding: 3500000,
-    emi: 30000,
+
+    homeLoan: {
+
+      originalAmount: 0,
+
+      outstanding: 0,
+
+      interestRate: 0,
+
+      tenureYears: 0,
+
+      emi: 0,
+
+    },
+
+    otherLoans: 0,
+
   },
+
+
+
+  assets: {
+
+    bankBalance: 0,
+
+    emergencyFund: 0,
+
+    propertyValue: 0,
+
+  },
+
+
+
+  budgets: [],
+
 };
 
-export function FinanceProvider({ children }) {
-  const [financeData, setFinanceData] = useState(() => {
-    const savedData = localStorage.getItem("financeos-data");
 
-    if (savedData) {
-      return JSON.parse(savedData);
+
+
+
+
+export function FinanceProvider({ children }) {
+
+
+  const { user } = useAuth();
+
+
+
+  const [financeData,setFinanceData] = useState(
+    emptyFinanceData
+  );
+
+
+  const [loading,setLoading] = useState(true);
+
+
+
+
+
+
+  useEffect(()=>{
+
+
+    async function loadFinanceData(){
+
+
+      if(!user){
+
+        setLoading(false);
+
+        return;
+
+      }
+
+
+
+
+      const {
+
+        data,
+
+        error
+
+      } = await supabase
+
+      .from("finance_data")
+
+      .select("*")
+
+      .eq(
+
+        "user_id",
+
+        user.id
+
+      )
+
+      .single();
+
+
+
+
+
+      if(data){
+
+
+        setFinanceData(data.data);
+
+
+      }
+
+      else{
+
+
+        await saveFinanceData(
+          emptyFinanceData
+        );
+
+
+      }
+
+
+
+
+
+      setLoading(false);
+
+
+
     }
 
-    return defaultFinanceData;
-  });
 
-  useEffect(() => {
-    localStorage.setItem(
-      "financeos-data",
-      JSON.stringify(financeData)
-    );
-  }, [financeData]);
+
+
+
+    loadFinanceData();
+
+
+
+  },[user]);
+
+
+
+
+
+
+
+  async function saveFinanceData(newData){
+
+
+
+    if(!user){
+
+      return;
+
+    }
+
+
+
+
+    setFinanceData(newData);
+
+
+
+
+
+    await supabase
+
+    .from("finance_data")
+
+    .upsert({
+
+      user_id:user.id,
+
+      data:newData,
+
+    });
+
+
+
+  }
+
+
+
+
+
+
+
+  const addExpense=(expense)=>{
+
+
+    const updatedData={
+
+      ...financeData,
+
+
+      expenses:[
+
+        ...financeData.expenses,
+
+        {
+
+          id:Date.now(),
+
+          ...expense
+
+        }
+
+      ]
+
+    };
+
+
+
+    saveFinanceData(updatedData);
+
+
+  };
+
+
+
+
+
+
+
+
+  const deleteExpense=(id)=>{
+
+
+    const updatedData={
+
+
+      ...financeData,
+
+
+      expenses:
+
+      financeData.expenses.filter(
+
+        item=>item.id!==id
+
+      )
+
+
+    };
+
+
+
+    saveFinanceData(updatedData);
+
+
+  };
+
+
+
+
+
+
+
+
+  const addInvestment=(investment)=>{
+
+
+    const updatedData={
+
+
+      ...financeData,
+
+
+      investments:[
+
+        ...financeData.investments,
+
+        {
+
+          id:Date.now(),
+
+          ...investment
+
+        }
+
+      ]
+
+
+    };
+
+
+
+    saveFinanceData(updatedData);
+
+
+  };
+
+
+
+
+
+
+
+
+  const deleteInvestment=(id)=>{
+
+
+    const updatedData={
+
+
+      ...financeData,
+
+
+      investments:
+
+      financeData.investments.filter(
+
+        item=>item.id!==id
+
+      )
+
+
+    };
+
+
+
+    saveFinanceData(updatedData);
+
+
+  };
+
+
+
+
+
+
+
 
   return (
+
+
     <FinanceContext.Provider
+
+
       value={{
+
         financeData,
-        setFinanceData,
+
+        setFinanceData:saveFinanceData,
+
+        addExpense,
+
+        deleteExpense,
+
+        addInvestment,
+
+        deleteInvestment,
+
+        loading,
+
       }}
+
+
     >
+
       {children}
+
+
     </FinanceContext.Provider>
+
+
   );
+
+
 }
