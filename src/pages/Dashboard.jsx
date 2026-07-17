@@ -1,311 +1,48 @@
-import { useContext } from "react";
-
-import {
-  Wallet,
-  TrendingUp,
-  CreditCard,
-  IndianRupee,
-  PiggyBank,
-} from "lucide-react";
-
-
-import { FinanceContext } from "../context/FinanceContext";
-
-import FinanceCard from "../components/FinanceCard";
-import Header from "../components/common/Header";
-
-import RecentExpenses from "../components/dashboard/RecentExpenses";
-import RecentInvestments from "../components/dashboard/RecentInvestments";
-import FinancialHealth from "../components/dashboard/FinancialHealth";
-import DashboardCharts from "../components/dashboard/DashboardCharts";
-
-
-
-function Dashboard() {
-
-
-  const { financeData } = useContext(FinanceContext);
-
-
-
-  const totalInvestments =
-
-    (financeData.investments || []).reduce(
-
-      (sum, item) =>
-
-        sum + Number(item.currentValue || item.amount || 0),
-
-      0
-
-    );
-
-
-
-
-
-  const totalExpenses =
-
-    (financeData.expenses || []).reduce(
-
-      (sum, item) =>
-
-        sum + Number(item.amount || 0),
-
-      0
-
-    );
-
-
-
-
-
-  const monthlyIncome =
-
-    Number(financeData.income?.salary || 0) +
-
-    Number(financeData.income?.otherIncome || 0);
-
-
-
-
-
-  const emi =
-
-    Number(
-
-      financeData.loans?.homeLoan?.emi ||
-
-      financeData.loans?.emi ||
-
-      0
-
-    );
-
-
-
-
-
-  const monthlySavings =
-
-    monthlyIncome -
-
-    totalExpenses -
-
-    emi;
-
-
-
-
-
-
-  const assets = financeData.assets || {
-
-    bankBalance:0,
-
-    emergencyFund:0,
-
-    propertyValue:0,
-
-  };
-
-
-
-
-
-  const liabilities = financeData.liabilities || {
-
-    otherLoans:0,
-
-  };
-
-
-
-
-
-  const totalAssets =
-
-    Number(assets.bankBalance || 0) +
-
-    Number(assets.emergencyFund || 0) +
-
-    Number(assets.propertyValue || 0) +
-
-    totalInvestments;
-
-
-
-
-
-  const homeLoanOutstanding =
-
-    Number(
-
-      financeData.loans?.homeLoan?.outstanding ||
-
-      financeData.loans?.homeLoanOutstanding ||
-
-      0
-
-    );
-
-
-
-
-
-  const totalLiabilities =
-
-    homeLoanOutstanding +
-
-    Number(liabilities.otherLoans || 0);
-
-
-
-
-
-  const netWorth =
-
-    totalAssets -
-
-    totalLiabilities;
-
-
-
-
-
-
+import React from 'react';
+import { useFinance } from '../context/FinanceContext';
+
+export default function Dashboard() {
+  const { userData } = useFinance();
+
+  // Defensive check: if userData isn't loaded yet, show a loading state
+  if (!userData) {
+    return <div className="p-10 text-center text-gray-500">Loading your financial vault...</div>;
+  }
+
+  const { profile, incomes, expenses, investments, loans, budgetLimit } = userData;
+
+  // Safe calculations
+  const totalIncome = (incomes || []).reduce((sum, i) => sum + Number(i.amount || 0), 0);
+  const totalExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const monthlySavings = totalIncome - totalExpenses;
+
+  const totalInvAmount = (investments || []).reduce((sum, i) => sum + Number(i.invested || 0), 0);
+  const totalCurrentVal = (investments || []).reduce((sum, i) => sum + Number(i.current || 0), 0);
+  const totalProfitLoss = totalCurrentVal - totalInvAmount;
+  const totalLoans = (loans || []).reduce((sum, l) => sum + Number(l.balance || 0), 0);
+  const netWorth = totalCurrentVal - totalLoans;
 
   return (
-
-
-    <div className="space-y-8">
-
-
-      <Header
-
-        title="Dashboard"
-
-        subtitle="Welcome back! Here's your financial overview."
-
-      />
-
-
-
-
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
-
-
-
-        <FinanceCard
-
-          title="Net Worth"
-
-          value={`₹ ${netWorth.toLocaleString()}`}
-
-          icon={<IndianRupee />}
-
-        />
-
-
-
-
-
-        <FinanceCard
-
-          title="Income"
-
-          value={`₹ ${monthlyIncome.toLocaleString()}`}
-
-          icon={<Wallet />}
-
-        />
-
-
-
-
-
-        <FinanceCard
-
-          title="Expenses"
-
-          value={`₹ ${totalExpenses.toLocaleString()}`}
-
-          icon={<CreditCard />}
-
-        />
-
-
-
-
-
-        <FinanceCard
-
-          title="Savings"
-
-          value={`₹ ${monthlySavings.toLocaleString()}`}
-
-          icon={<PiggyBank />}
-
-        />
-
-
-
-
-
-        <FinanceCard
-
-          title="Investments"
-
-          value={`₹ ${totalInvestments.toLocaleString()}`}
-
-          icon={<TrendingUp />}
-
-        />
-
-
-
+    <div className="p-6 space-y-6">
+      <div className="bg-slate-900 rounded-3xl p-8 text-white shadow-xl">
+        <h2 className="text-2xl font-bold">Good Evening, {profile.name || 'User'} 👋</h2>
+        <p className="text-slate-400 mt-2">Your current Net Worth is <strong className="text-emerald-400">₹{netWorth.toLocaleString()}</strong></p>
       </div>
 
-
-
-
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-
-        <RecentExpenses />
-
-
-        <RecentInvestments />
-
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl border shadow-sm">
+          <p className="text-sm text-gray-500 font-bold uppercase">Total Investments</p>
+          <p className="text-2xl font-black mt-2">₹ {totalCurrentVal.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-6 rounded-xl border shadow-sm">
+          <p className="text-sm text-gray-500 font-bold uppercase">Monthly Income</p>
+          <p className="text-2xl font-black mt-2 text-emerald-600">₹ {totalIncome.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-6 rounded-xl border shadow-sm">
+          <p className="text-sm text-gray-500 font-bold uppercase">Monthly Expenses</p>
+          <p className="text-2xl font-black mt-2 text-rose-600">₹ {totalExpenses.toLocaleString()}</p>
+        </div>
       </div>
-
-
-
-
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-
-        <FinancialHealth />
-
-
-        <DashboardCharts />
-
-
-      </div>
-
-
-
-
     </div>
-
-
   );
-
 }
-
-
-export default Dashboard;

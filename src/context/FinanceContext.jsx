@@ -1,152 +1,64 @@
-import { createContext, useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
-import { useAuth } from "./AuthContext";
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+
+// PASTE YOUR FIREBASE CONFIG HERE
+const firebaseConfig = {
+  apiKey: "AIzaSyBQyadeF2T5bAOVl7UbX65u6NAViEjPqtg",
+  authDomain: "financeos-f3827.firebaseapp.com",
+  projectId: "financeos-f3827",
+  storageBucket: "financeos-f3827.firebasestorage.app",
+  messagingSenderId: "682248007672",
+  appId: "1:682248007672:web:6f2ac7cc4955bd1adbf00d"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 export const FinanceContext = createContext();
 
-const emptyFinanceData = {
-  income: {
-    salary: 0,
-    otherIncome: 0,
-  },
-  expenses: [],
-  investments: [],
-  loans: {
-    homeLoan: {
-      originalAmount: 0,
-      outstanding: 0,
-      interestRate: 0,
-      tenureYears: 0,
-      emi: 0,
-    },
-    otherLoans: 0,
-  },
-  assets: {
-    bankBalance: 0,
-    emergencyFund: 0,
-    propertyValue: 0,
-  },
-  budgets: [],
-};
-
-export function FinanceProvider({ children }) {
-  const { user } = useAuth();
-
-  const [financeData, setFinanceData] = useState(emptyFinanceData);
-  const [loading, setLoading] = useState(true);
+export const FinanceProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState({ incomes: [], expenses: [], investments: [], loans: [], goals: [], budgetLimit: 50000 });
 
   useEffect(() => {
-    async function loadFinanceData() {
-      if (!user) {
-        setFinanceData(emptyFinanceData);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from("finance_data")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        console.error(error);
-        setLoading(false);
-        return;
-      }
-
-      if (data) {
-        setFinanceData(data.data);
+    onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (u) {
+        const docRef = doc(db, "users", u.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) setUserData(docSnap.data());
       } else {
-        await saveFinanceData(emptyFinanceData);
+        setUserData({ incomes: [], expenses: [], investments: [], loans: [], goals: [], budgetLimit: 50000 });
       }
-
-      setLoading(false);
-    }
-
-    loadFinanceData();
-  }, [user]);
-
-  async function saveFinanceData(newData) {
-    if (!user) return false;
-
-    const { error } = await supabase.from("finance_data").upsert({
-      user_id: user.id,
-      data: newData,
     });
+  }, []);
 
-    if (error) {
-      console.error("Save failed", error);
-      return false;
-    }
-
-    setFinanceData(newData);
-    return true;
-  }
-
-  const addExpense = async (expense) => {
-    const updated = {
-      ...financeData,
-      expenses: [
-        ...financeData.expenses,
-        {
-          id: Date.now(),
-          ...expense,
-        },
-      ],
-    };
-
-    return await saveFinanceData(updated);
+  const saveToDb = async (newData) => {
+    setUserData(newData);
+    if (user) await setDoc(doc(db, "users", user.uid), newData);
   };
 
-  const deleteExpense = async (id) => {
-    const updated = {
-      ...financeData,
-      expenses: financeData.expenses.filter((e) => e.id !== id),
-    };
-
-    return await saveFinanceData(updated);
+  const actions = {
+    addIncome: (i) => saveToDb({...userData, incomes: [...(userData.incomes || []), {...i, id: Date.now()}]}),
+    deleteIncome: (id) => saveToDb({...userData, incomes: (userData.incomes || []).filter(i => i.id !== id)}),
+    addExpense: (e) => saveToDb({...userData, expenses: [...(userData.expenses || []), {...e, id: Date.now()}]}),
+    deleteExpense: (id) => saveToDb({...userData, expenses: (userData.expenses || []).filter(e => e.id !== id)}),
+    addInvestment: (i) => saveToDb({...userData, investments: [...(userData.investments || []), {...i, id: Date.now()}]}),
+    deleteInvestment: (id) => saveToDb({...userData, investments: (userData.investments || []).filter(i => i.id !== id)}),
+    addLoan: (l) => saveToDb({...userData, loans: [...(userData.loans || []), {...l, id: Date.now()}]}),
+    deleteLoan: (id) => saveToDb({...userData, loans: (userData.loans || []).filter(l => l.id !== id)}),
+    addGoal: (g) => saveToDb({...userData, goals: [...(userData.goals || []), {...g, id: Date.now()}]}),
+    deleteGoal: (id) => saveToDb({...userData, goals: (userData.goals || []).filter(g => g.id !== id)}),
+    updateGoalSaved: (id, amt) => saveToDb({...userData, goals: (userData.goals || []).map(g => g.id === id ? {...g, saved: Number(g.saved) + Number(amt)} : g)}),
+    login: (e, p) => signInWithEmailAndPassword(auth, e, p),
+    signup: (e, p) => createUserWithEmailAndPassword(auth, e, p),
+    logout: () => signOut(auth)
   };
 
-  const addInvestment = async (investment) => {
-    const updated = {
-      ...financeData,
-      investments: [
-        ...financeData.investments,
-        {
-          id: Date.now(),
-          ...investment,
-        },
-      ],
-    };
+  return <FinanceContext.Provider value={{ user, userData, ...actions }}>{children}</FinanceContext.Provider>;
+};
 
-    return await saveFinanceData(updated);
-  };
-
-  const deleteInvestment = async (id) => {
-    const updated = {
-      ...financeData,
-      investments: financeData.investments.filter((i) => i.id !== id),
-    };
-
-    return await saveFinanceData(updated);
-  };
-
-  return (
-    <FinanceContext.Provider
-      value={{
-        financeData,
-        setFinanceData: saveFinanceData,
-        addExpense,
-        deleteExpense,
-        addInvestment,
-        deleteInvestment,
-        loading,
-      }}
-    >
-      {children}
-    </FinanceContext.Provider>
-  );
-}
+export const useFinance = () => useContext(FinanceContext);
